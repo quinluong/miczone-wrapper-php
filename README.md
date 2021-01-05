@@ -40,7 +40,7 @@ $client->ow_notifyString([
 });
 
 // Sync
-$response = $client->ow_notifyString([
+$response = $client->notifyString([
     'topic' => 'topicB',
     'key' => 'my-key',
     'data' => '{}',
