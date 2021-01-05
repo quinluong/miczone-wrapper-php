@@ -1,0 +1,16 @@
+{
+  "name": "quinluong/miczone-wrapper-php",
+  "type": "library",
+  "description": "Miczone wrapper for php",
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "require": {
+    "php": ">=7.2",
+    "quinluong/miczone-thrift-php": "0.0.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "Miczone\\": "src/Miczone/"
+    }
+  }
+}
