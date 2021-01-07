@@ -32,7 +32,7 @@ $client = new Notifier([
 $client->ow_notifyString([
     'topic' => 'topicA',
     'key' => 'my-key', // to keep packages in order if they have the same key
-    'data' => '{}', // data can be Boolean / Integer / Double / String
+    'data' => '{}', // data type can be Boolean / Integer / Double / String
 ], function () {
     // Success callback
 }, function ($ex) {
