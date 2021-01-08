@@ -25,14 +25,14 @@ $client = new Notifier([
     'clientId' => 'my-service',
     'auth' => 'user:pass',
     'topics' => 'topicA,topicB',
-    'numberOfRetries' => 3,
+    'numberOfRetries' => 3
 ]);
 
 // Async
 $client->ow_notifyString([
     'topic' => 'topicA',
     'key' => 'my-key', // to keep packages in order if they have the same key
-    'data' => '{}', // data type can be Boolean / Integer / Double / String
+    'data' => '{}' // data type can be Boolean / Integer / Double / String
 ], function () {
     // Success callback
 }, function ($ex) {
@@ -45,4 +45,30 @@ $response = $client->notifyString([
     'key' => 'my-key',
     'data' => '{}',
 ]);
+```
+
+#### Watcher
+
+```php
+use Miczone\Wrapper\MiczoneEventBusClient\Watcher;
+
+$client = new Watcher([
+    'hosts' => '127.0.0.1:1234',
+    'clientId' => 'my-service',
+    'groupId' => 'my-group',
+    'topics' => 'topicA,topicB'
+]);
+
+// Handler type can be BooleanWatcherHandlerInterface / IntegerWatcherHandlerInterface, DoubleWatcherHandlerInterface, StringWatcherHandlerInterface
+$client->setHandler(new class implements StringWatcherHandlerInterface {
+    public function onMessage(string $topic, int $partition, int $offset, int $timestamp, string $key = null, string $data = null) {
+        // Do your stuff
+    }
+
+    public function onError($code, string $message, \Exception $exception = null) {
+        // Catch error
+    }
+});
+
+$client->start();
 ```

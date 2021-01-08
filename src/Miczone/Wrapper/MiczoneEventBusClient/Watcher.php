@@ -147,6 +147,7 @@ class Watcher {
     $topic = $message->topic_name;
     $partition = $message->partition;
     $offset = $message->offset;
+    $timestamp = $message->timestamp;
     $key = $message->key;
     $data = null;
 
@@ -158,22 +159,22 @@ class Watcher {
       if ($data !== null) {
         $data = boolval($data);
       }
-      $this->handler->onMessage($topic, $partition, $offset, $key, $data);
+      $this->handler->onMessage($topic, $partition, $offset, $timestamp, $key, $data);
     } else if ($this->handler instanceof IntegerWatcherHandlerInterface) {
       if ($data !== null) {
         $data = intval($data);
       }
-      $this->handler->onMessage($topic, $partition, $offset, $key, $data);
+      $this->handler->onMessage($topic, $partition, $offset, $timestamp, $key, $data);
     } else if ($this->handler instanceof DoubleWatcherHandlerInterface) {
       if ($data !== null) {
         $data = floatval($data);
       }
-      $this->handler->onMessage($topic, $partition, $offset, $key, $data);
+      $this->handler->onMessage($topic, $partition, $offset, $timestamp, $key, $data);
     } else if ($this->handler instanceof StringWatcherHandlerInterface) {
       if ($data !== null) {
         $data = strval($data);
       }
-      $this->handler->onMessage($topic, $partition, $offset, $key, $data);
+      $this->handler->onMessage($topic, $partition, $offset, $timestamp, $key, $data);
     } else {
       $this->_error(ErrorCode::FAIL, 'Can not receive data, data type is not supported');
     }
@@ -208,6 +209,7 @@ class Watcher {
           case RD_KAFKA_RESP_ERR_NO_ERROR:
             $this->_process($message);
             break;
+
           default:
             break;
         }
