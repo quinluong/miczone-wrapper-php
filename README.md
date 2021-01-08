@@ -1,8 +1,16 @@
 # miczone-wrapper-php
 
+## Installation
+
+This library can be installed via Composer:
+
+```bash
+composer require quinluong/miczone-wrapper-php
+```
+
 ## EventBus
 
-### Install
+### Prerequisite libraries
 
 In order to use this library, must be install by following https://github.com/arnaud-lb/php-rdkafka#installation
 
@@ -61,7 +69,14 @@ $client = new Watcher([
     'topics' => 'topicA,topicB'
 ]);
 
-// Handler type can be BooleanWatcherHandlerInterface / IntegerWatcherHandlerInterface / DoubleWatcherHandlerInterface / StringWatcherHandlerInterface
+
+/**
+ * Handler interface can be:
+ * - BooleanWatcherHandlerInterface
+ * - IntegerWatcherHandlerInterface
+ * - DoubleWatcherHandlerInterface
+ * - StringWatcherHandlerInterface
+ */
 $client->setHandler(new class implements StringWatcherHandlerInterface {
     public function onMessage(string $topic, int $partition, int $offset, int $timestamp, string $key = null, string $data = null) {
         // Do your stuff
