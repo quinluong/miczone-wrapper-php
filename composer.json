@@ -5,8 +5,8 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   "require": {
-    "php": ">=7.2",
-    "quinluong/miczone-thrift-php": "0.0.2"
+    "php": ">=7.0",
+    "quinluong/miczone-thrift-php": "0.0.3"
   },
   "autoload": {
     "psr-4": {
