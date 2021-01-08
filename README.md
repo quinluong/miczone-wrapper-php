@@ -19,13 +19,14 @@ In order to use this library, must be install by following https://github.com/ar
 
 ```php
 use Miczone\Wrapper\MiczoneEventBusClient\Notifier;
+use Miczone\Thrift\EventBus\NotifyMessageResponse;
 
 $client = new Notifier([
     'hosts' => '127.0.0.1:1234',
     'clientId' => 'my-service',
     'auth' => 'user:pass',
     'topics' => 'topicA,topicB',
-    'numberOfRetries' => 3
+    'numberOfRetries' => 3 // optional
 ]);
 
 // Async
@@ -39,7 +40,7 @@ $client->ow_notifyString([
     // Error callback
 });
 
-// Sync
+// Sync, type of $response is NotifyMessageResponse
 $response = $client->notifyString([
     'topic' => 'topicB',
     'key' => 'my-key',
@@ -51,6 +52,7 @@ $response = $client->notifyString([
 
 ```php
 use Miczone\Wrapper\MiczoneEventBusClient\Watcher;
+use Miczone\Wrapper\MiczoneEventBusClient\WatcherHandler\StringWatcherHandlerInterface;
 
 $client = new Watcher([
     'hosts' => '127.0.0.1:1234',
@@ -59,7 +61,7 @@ $client = new Watcher([
     'topics' => 'topicA,topicB'
 ]);
 
-// Handler type can be BooleanWatcherHandlerInterface / IntegerWatcherHandlerInterface, DoubleWatcherHandlerInterface, StringWatcherHandlerInterface
+// Handler type can be BooleanWatcherHandlerInterface / IntegerWatcherHandlerInterface / DoubleWatcherHandlerInterface / StringWatcherHandlerInterface
 $client->setHandler(new class implements StringWatcherHandlerInterface {
     public function onMessage(string $topic, int $partition, int $offset, int $timestamp, string $key = null, string $data = null) {
         // Do your stuff
