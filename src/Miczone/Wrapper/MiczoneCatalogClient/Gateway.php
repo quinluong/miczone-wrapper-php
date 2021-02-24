@@ -2,6 +2,10 @@
 
 namespace Miczone\Wrapper\MiczoneCatalogClient;
 
+use Miczone\Thrift\Catalog\GetCategoryByIdRequest;
+use Miczone\Thrift\Catalog\GetCategoryByIdResponse;
+use Miczone\Thrift\Catalog\GetCategoryBySlugRequest;
+use Miczone\Thrift\Catalog\GetCategoryBySlugResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogGatewayServiceClient;
 use Miczone\Thrift\Catalog\SearchProductRequest;
 use Miczone\Thrift\Catalog\SearchProductResponse;
@@ -135,70 +139,87 @@ class Gateway {
     return $result;
   }
 
-  private function _createSearchProductRequest(array $params = []) {
-    $request = new SearchProductRequest();
-
-    if (isset($params['categoryId']) && is_string($params['categoryId']) && trim($params['categoryId']) !== '') {
-      $request->categoryId = trim($params['categoryId']);
+  private function _validateSearchProductRequest(SearchProductRequest $request) {
+    if (isset($request->sortBy)
+      && (!is_string($request->sortBy) || trim($request->sortBy) === '')) {
+      throw new \Exception('Invalid "sortBy" param');
     }
 
-    if (isset($params['website']) && is_string($params['website']) && trim($params['website']) !== '') {
-      $request->website = trim($params['website']);
+    if (isset($request->productCount)
+      && (!is_int($request->productCount) || $request->productCount <= 0)) {
+      throw new \Exception('Invalid "productCount" param');
     }
 
-    if (isset($params['countryCode']) && is_string($params['countryCode']) && trim($params['countryCode']) !== '') {
-      $request->countryCode = trim($params['countryCode']);
+    if (isset($request->productPage)
+      && (!is_int($request->productPage) || $request->productPage <= 0)) {
+      throw new \Exception('Invalid "productPage" param');
     }
 
-    if (isset($params['name']) && is_string($params['name']) && trim($params['name']) !== '') {
-      $request->name = trim($params['name']);
+    if (isset($request->keyword)
+      && (!is_string($request->keyword) || trim($request->keyword) === '')) {
+      throw new \Exception('Invalid "keyword" param');
     }
 
-    if (isset($params['translatedName']) && is_string($params['translatedName']) && trim($params['translatedName']) !== '') {
-      $request->translatedName = trim($params['translatedName']);
+    if (isset($request->categoryIdList)
+      && (!is_array($request->categoryIdList) || count($request->categoryIdList) === 0)) {
+      throw new \Exception('Invalid "categoryIdList" param');
     }
 
-    if (isset($params['ratingStar']) && is_float($params['ratingStar']) && $params['ratingStar'] >= 0) {
-      $request->ratingStar = $params['ratingStar'];
+    if (isset($request->websiteKeyList)
+      && (!is_array($request->websiteKeyList) || count($request->websiteKeyList) === 0)) {
+      throw new \Exception('Invalid "websiteKeyList" param');
     }
 
-    if (isset($params['merchantId']) && is_string($params['merchantId']) && trim($params['merchantId']) !== '') {
-      $request->merchantId = trim($params['merchantId']);
+    if (isset($request->countryKeyList)
+      && (!is_array($request->countryKeyList) || count($request->countryKeyList) === 0)) {
+      throw new \Exception('Invalid "countryKeyList" param');
     }
 
-    if (isset($params['merchantName']) && is_string($params['merchantName']) && trim($params['merchantName']) !== '') {
-      $request->merchantName = trim($params['merchantName']);
+    if (isset($request->merchantKeyList)
+      && (!is_array($request->merchantKeyList) || count($request->merchantKeyList) === 0)) {
+      throw new \Exception('Invalid "merchantKeyList" param');
     }
 
-    if (isset($params['brandId']) && is_string($params['brandId']) && trim($params['brandId']) !== '') {
-      $request->brandId = trim($params['brandId']);
+    if (isset($request->brandKeyList)
+      && (!is_array($request->brandKeyList) || count($request->brandKeyList) === 0)) {
+      throw new \Exception('Invalid "brandKeyList" param');
     }
 
-    if (isset($params['brandName']) && is_string($params['brandName']) && trim($params['brandName']) !== '') {
-      $request->brandName = trim($params['brandName']);
+    if (isset($request->conditionKeyList)
+      && (!is_array($request->conditionKeyList) || count($request->conditionKeyList) === 0)) {
+      throw new \Exception('Invalid "conditionKeyList" param');
     }
 
-    if (isset($params['minPrice']) && is_float($params['minPrice']) && $params['minPrice'] >= 0) {
-      $request->minPrice = $params['minPrice'];
+    if (isset($request->minPrice)
+      && (!is_float($request->minPrice) || $request->minPrice < 0)) {
+      throw new \Exception('Invalid "minPrice" param');
     }
 
-    if (isset($params['maxPrice']) && is_float($params['maxPrice']) && $params['maxPrice'] >= 0) {
-      $request->maxPrice = $params['maxPrice'];
+    if (isset($request->maxPrice)
+      && (!is_float($request->maxPrice) || $request->maxPrice < 0)) {
+      throw new \Exception('Invalid "maxPrice" param');
     }
 
-    if (isset($params['sortBy']) && is_string($params['sortBy']) && trim($params['sortBy']) !== '') {
-      $request->sortBy = trim($params['sortBy']);
+    if (isset($request->ratingStar)
+      && (!is_float($request->ratingStar) || $request->ratingStar < 0)) {
+      throw new \Exception('Invalid "ratingStar" param');
+    }
+  }
+
+  private function _validateGetCategoryByIdRequest(GetCategoryByIdRequest $request) {
+    if (!isset($request->id) || !is_string($request->id) || trim($request->id) === '') {
+      throw new \Exception('Invalid "id" param');
     }
 
-    if (isset($params['productCount']) && is_int($params['productCount']) && $params['productCount'] > 0) {
-      $request->productCount = $params['productCount'];
+    $request->id = trim($request->id);
+  }
+
+  private function _validateGetCategoryBySlugRequest(GetCategoryBySlugRequest $request) {
+    if (!isset($request->slug) || !is_string($request->slug) || trim($request->slug) === '') {
+      throw new \Exception('Invalid "slug" param');
     }
 
-    if (isset($params['productPage']) && is_int($params['productPage']) && $params['productPage'] > 0) {
-      $request->productPage = $params['productPage'];
-    }
-
-    return $request;
+    $request->slug = trim($request->slug);
   }
 
   private function _createTransportAndClient(string $host, int $port) {
@@ -255,27 +276,12 @@ class Gateway {
   }
 
   /**
-   * @param array $params Contains:
-   * string     categoryId
-   * string     website
-   * string     countryCode
-   * string     name
-   * string     translatedName
-   * float      ratingStar
-   * string     merchantId
-   * string     merchantName
-   * string     brandId
-   * string     brandName
-   * float      minPrice
-   * float      maxPrice
-   * string     sortBy
-   * int        productCount
-   * int        productPage
+   * @param \Miczone\Thrift\Catalog\SearchProductRequest
    * @return \Miczone\Thrift\Catalog\SearchProductResponse
    * @throws \Exception
    */
-  public function searchProduct(array $params) {
-    $request = $this->_createSearchProductRequest($params);
+  public function searchProduct(SearchProductRequest $request) {
+    $this->_validateSearchProductRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -306,6 +312,92 @@ class Gateway {
     }
 
     return new SearchProductResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\GetCategoryByIdRequest
+   * @return \Miczone\Thrift\Catalog\GetCategoryByIdResponse
+   * @throws \Exception
+   */
+  public function getCategoryById(GetCategoryByIdRequest $request) {
+    $this->_validateGetCategoryByIdRequest($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getCategoryById($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetCategoryByIdResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\GetCategoryBySlugRequest
+   * @return \Miczone\Thrift\Catalog\GetCategoryBySlugResponse
+   * @throws \Exception
+   */
+  public function getCategoryBySlug(GetCategoryBySlugRequest $request) {
+    $this->_validateGetCategoryBySlugRequest($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getCategoryBySlug($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetCategoryBySlugResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),

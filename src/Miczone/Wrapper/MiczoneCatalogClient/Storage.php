@@ -149,148 +149,60 @@ class Storage {
     return $result;
   }
 
-  private function _createGetProductByIdRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['id']) || !is_string($params['id']) || trim($params['id']) === '') {
+  private function _validateGetProductByIdRequest(GetProductByIdRequest $request) {
+    if (!isset($request->id) || !is_string($request->id) || trim($request->id) === '') {
       throw new \Exception('Invalid "id" param');
     }
 
-    $strId = trim($params['id']);
-
-    $request = new GetProductByIdRequest([
-      'id' => $strId,
-    ]);
-
-    return $request;
+    $request->id = trim($request->id);
   }
 
-  private function _createGetProductBySkuRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['sku']) || !is_string($params['sku']) || trim($params['sku']) === '') {
+  private function _validateGetProductBySkuRequest(GetProductBySkuRequest $request) {
+    if (!isset($request->sku) || !is_string($request->sku) || trim($request->sku) === '') {
       throw new \Exception('Invalid "sku" param');
     }
 
-    $strSku = trim($params['sku']);
-
-    $request = new GetProductBySkuRequest([
-      'sku' => $strSku,
-    ]);
-
-    return $request;
+    $request->sku = trim($request->sku);
   }
 
-  private function _createMultiGetProductByIdListRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['idList']) || !is_array($params['idList']) || count($params['idList']) === 0) {
+  private function _validateMultiGetProductByIdListRequest(MultiGetProductByIdListRequest $request) {
+    if (!isset($request->idList) || !is_array($request->idList) || count($request->idList) === 0) {
       throw new \Exception('Invalid "idList" param');
     }
-
-    $arrId = trim($params['idList']);
-
-    $request = new MultiGetProductByIdListRequest([
-      'idList' => $arrId,
-    ]);
-
-    return $request;
   }
 
-  private function _createMultiGetProductBySkuListRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['skuList']) || !is_array($params['skuList']) || count($params['skuList']) === 0) {
+  private function _validateMultiGetProductBySkuListRequest(MultiGetProductBySkuListRequest $request) {
+    if (!isset($request->skuList) || !is_array($request->skuList) || count($request->skuList) === 0) {
       throw new \Exception('Invalid "skuList" param');
     }
-
-    $arrSku = trim($params['skuList']);
-
-    $request = new MultiGetProductBySkuListRequest([
-      'skuList' => $arrSku,
-    ]);
-
-    return $request;
   }
 
-  private function _createGetCategoryByIdRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['id']) || !is_string($params['id']) || trim($params['id']) === '') {
+  private function _validateGetCategoryByIdRequest(GetCategoryByIdRequest $request) {
+    if (!isset($request->id) || !is_string($request->id) || trim($request->id) === '') {
       throw new \Exception('Invalid "id" param');
     }
 
-    $strId = trim($params['id']);
-
-    $request = new GetCategoryByIdRequest([
-      'id' => $strId,
-    ]);
-
-    return $request;
+    $request->id = trim($request->id);
   }
 
-  private function _createGetCategoryBySlugRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['slug']) || !is_string($params['slug']) || trim($params['slug']) === '') {
+  private function _validateGetCategoryBySlugRequest(GetCategoryBySlugRequest $request) {
+    if (!isset($request->slug) || !is_string($request->slug) || trim($request->slug) === '') {
       throw new \Exception('Invalid "slug" param');
     }
 
-    $strSlug = trim($params['slug']);
-
-    $request = new GetCategoryBySlugRequest([
-      'slug' => $strSlug,
-    ]);
-
-    return $request;
+    $request->slug = trim($request->slug);
   }
 
-  private function _createMultiGetCategoryByIdListRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['idList']) || !is_array($params['idList']) || count($params['idList']) === 0) {
+  private function _validateMultiGetCategoryByIdListRequest(MultiGetCategoryByIdListRequest $request) {
+    if (!isset($request->idList) || !is_array($request->idList) || count($request->idList) === 0) {
       throw new \Exception('Invalid "idList" param');
     }
-
-    $arrId = trim($params['idList']);
-
-    $request = new MultiGetCategoryByIdListRequest([
-      'idList' => $arrId,
-    ]);
-
-    return $request;
   }
 
-  private function _createMultiGetCategoryBySlugListRequest(array $params = []) {
-    if (empty($params)) {
-      throw new \Exception('Invalid array params');
-    }
-
-    if (!isset($params['slugList']) || !is_array($params['slugList']) || count($params['slugList']) === 0) {
+  private function _validateMultiGetCategoryBySlugListRequest(MultiGetCategoryBySlugListRequest $request) {
+    if (!isset($request->slugList) || !is_array($request->slugList) || count($request->slugList) === 0) {
       throw new \Exception('Invalid "slugList" param');
     }
-
-    $arrSlug = trim($params['slugList']);
-
-    $request = new MultiGetCategoryBySlugListRequest([
-      'slugList' => $arrSlug,
-    ]);
-
-    return $request;
   }
 
   private function _createTransportAndClient(string $host, int $port) {
@@ -347,13 +259,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * string     id (required)
+   * @param \Miczone\Thrift\Catalog\GetProductByIdRequest
    * @return \Miczone\Thrift\Catalog\GetProductByIdResponse
    * @throws \Exception
    */
-  public function getProductById(array $params) {
-    $request = $this->_createGetProductByIdRequest($params);
+  public function getProductById(GetProductByIdRequest $request) {
+    $this->_validateGetProductByIdRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -391,13 +302,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * string     sku (required)
+   * @param \Miczone\Thrift\Catalog\GetProductBySkuRequest
    * @return \Miczone\Thrift\Catalog\GetProductBySkuResponse
    * @throws \Exception
    */
-  public function getProductBySku(array $params) {
-    $request = $this->_createGetProductBySkuRequest($params);
+  public function getProductBySku(GetProductBySkuRequest $request) {
+    $this->_validateGetProductBySkuRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -435,13 +345,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * array      idList (required)
+   * @param \Miczone\Thrift\Catalog\MultiGetProductByIdListRequest
    * @return \Miczone\Thrift\Catalog\MultiGetProductByIdListResponse
    * @throws \Exception
    */
-  public function multiGetProductByIdList(array $params) {
-    $request = $this->_createMultiGetProductByIdListRequest($params);
+  public function multiGetProductByIdList(MultiGetProductByIdListRequest $request) {
+    $this->_validateMultiGetProductByIdListRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -479,13 +388,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * array      skuList (required)
+   * @param \Miczone\Thrift\Catalog\MultiGetProductBySkuListRequest
    * @return \Miczone\Thrift\Catalog\MultiGetProductBySkuListResponse
    * @throws \Exception
    */
-  public function multiGetProductBySkuList(array $params) {
-    $request = $this->_createMultiGetProductBySkuListRequest($params);
+  public function multiGetProductBySkuList(MultiGetProductBySkuListRequest $request) {
+    $this->_validateMultiGetProductBySkuListRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -523,13 +431,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * string     id (required)
+   * @param \Miczone\Thrift\Catalog\GetCategoryByIdRequest
    * @return \Miczone\Thrift\Catalog\GetCategoryByIdResponse
    * @throws \Exception
    */
-  public function getCategoryById(array $params) {
-    $request = $this->_createGetCategoryByIdRequest($params);
+  public function getCategoryById(GetCategoryByIdRequest $request) {
+    $this->_validateGetCategoryByIdRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -567,13 +474,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * string     slug (required)
+   * @param \Miczone\Thrift\Catalog\GetCategoryBySlugRequest
    * @return \Miczone\Thrift\Catalog\GetCategoryBySlugResponse
    * @throws \Exception
    */
-  public function getCategoryBySlug(array $params) {
-    $request = $this->_createGetCategoryBySlugRequest($params);
+  public function getCategoryBySlug(GetCategoryBySlugRequest $request) {
+    $this->_validateGetCategoryBySlugRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -611,13 +517,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * array      idList (required)
+   * @param \Miczone\Thrift\Catalog\MultiGetCategoryByIdListRequest
    * @return \Miczone\Thrift\Catalog\MultiGetCategoryByIdListResponse
    * @throws \Exception
    */
-  public function multiGetCategoryByIdList(array $params) {
-    $request = $this->_createMultiGetCategoryByIdListRequest($params);
+  public function multiGetCategoryByIdList(MultiGetCategoryByIdListRequest $request) {
+    $this->_validateMultiGetCategoryByIdListRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -655,13 +560,12 @@ class Storage {
   }
 
   /**
-   * @param array $params Contains:
-   * array      slugList (required)
+   * @param \Miczone\Thrift\Catalog\MultiGetCategoryBySlugListRequest
    * @return \Miczone\Thrift\Catalog\MultiGetCategoryBySlugListResponse
    * @throws \Exception
    */
-  public function multiGetCategoryBySlugList(array $params) {
-    $request = $this->_createMultiGetCategoryBySlugListRequest($params);
+  public function multiGetCategoryBySlugList(MultiGetCategoryBySlugListRequest $request) {
+    $this->_validateMultiGetCategoryBySlugListRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
