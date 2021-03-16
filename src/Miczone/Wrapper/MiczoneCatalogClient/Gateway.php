@@ -2,13 +2,13 @@
 
 namespace Miczone\Wrapper\MiczoneCatalogClient;
 
-use Miczone\Thrift\Catalog\GetCategoryByIdRequest;
-use Miczone\Thrift\Catalog\GetCategoryByIdResponse;
-use Miczone\Thrift\Catalog\GetCategoryBySlugRequest;
-use Miczone\Thrift\Catalog\GetCategoryBySlugResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogGatewayServiceClient;
-use Miczone\Thrift\Catalog\SearchProductRequest;
-use Miczone\Thrift\Catalog\SearchProductResponse;
+use Miczone\Thrift\Catalog\Search\SearchProductRequest;
+use Miczone\Thrift\Catalog\Search\SearchProductResponse;
 use Miczone\Thrift\Common\Error;
 use Miczone\Thrift\Common\ErrorCode;
 use Miczone\Thrift\Common\OperationHandle;
@@ -165,31 +165,6 @@ class Gateway {
       throw new \Exception('Invalid "categoryIdList" param');
     }
 
-    if (isset($request->websiteKeyList)
-      && (!is_array($request->websiteKeyList) || count($request->websiteKeyList) === 0)) {
-      throw new \Exception('Invalid "websiteKeyList" param');
-    }
-
-    if (isset($request->countryKeyList)
-      && (!is_array($request->countryKeyList) || count($request->countryKeyList) === 0)) {
-      throw new \Exception('Invalid "countryKeyList" param');
-    }
-
-    if (isset($request->merchantKeyList)
-      && (!is_array($request->merchantKeyList) || count($request->merchantKeyList) === 0)) {
-      throw new \Exception('Invalid "merchantKeyList" param');
-    }
-
-    if (isset($request->brandKeyList)
-      && (!is_array($request->brandKeyList) || count($request->brandKeyList) === 0)) {
-      throw new \Exception('Invalid "brandKeyList" param');
-    }
-
-    if (isset($request->conditionKeyList)
-      && (!is_array($request->conditionKeyList) || count($request->conditionKeyList) === 0)) {
-      throw new \Exception('Invalid "conditionKeyList" param');
-    }
-
     if (isset($request->minPrice)
       && (!is_float($request->minPrice) || $request->minPrice < 0)) {
       throw new \Exception('Invalid "minPrice" param');
@@ -200,9 +175,9 @@ class Gateway {
       throw new \Exception('Invalid "maxPrice" param');
     }
 
-    if (isset($request->ratingStar)
-      && (!is_float($request->ratingStar) || $request->ratingStar < 0)) {
-      throw new \Exception('Invalid "ratingStar" param');
+    if (isset($request->filterGroupList)
+      && (!is_array($request->filterGroupList) || count($request->filterGroupList) === 0)) {
+      throw new \Exception('Invalid "filterGroupList" param');
     }
   }
 

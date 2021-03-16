@@ -2,23 +2,19 @@
 
 namespace Miczone\Wrapper\MiczoneCatalogClient;
 
-use Miczone\Thrift\Catalog\GetCategoryByIdRequest;
-use Miczone\Thrift\Catalog\GetCategoryByIdResponse;
-use Miczone\Thrift\Catalog\GetCategoryBySlugRequest;
-use Miczone\Thrift\Catalog\GetCategoryBySlugResponse;
-use Miczone\Thrift\Catalog\GetProductByIdRequest;
-use Miczone\Thrift\Catalog\GetProductByIdResponse;
-use Miczone\Thrift\Catalog\GetProductBySkuRequest;
-use Miczone\Thrift\Catalog\GetProductBySkuResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListRequest;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListResponse;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListRequest;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogStorageServiceClient;
-use Miczone\Thrift\Catalog\MultiGetCategoryByIdListRequest;
-use Miczone\Thrift\Catalog\MultiGetCategoryByIdListResponse;
-use Miczone\Thrift\Catalog\MultiGetCategoryBySlugListRequest;
-use Miczone\Thrift\Catalog\MultiGetCategoryBySlugListResponse;
-use Miczone\Thrift\Catalog\MultiGetProductByIdListRequest;
-use Miczone\Thrift\Catalog\MultiGetProductByIdListResponse;
-use Miczone\Thrift\Catalog\MultiGetProductBySkuListRequest;
-use Miczone\Thrift\Catalog\MultiGetProductBySkuListResponse;
+use Miczone\Thrift\Catalog\Product\GetProductByIdRequest;
+use Miczone\Thrift\Catalog\Product\GetProductByIdResponse;
+use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListRequest;
+use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListResponse;
 use Miczone\Thrift\Common\Error;
 use Miczone\Thrift\Common\ErrorCode;
 use Miczone\Thrift\Common\OperationHandle;
@@ -157,23 +153,9 @@ class Storage {
     $request->id = trim($request->id);
   }
 
-  private function _validateGetProductBySkuRequest(GetProductBySkuRequest $request) {
-    if (!isset($request->sku) || !is_string($request->sku) || trim($request->sku) === '') {
-      throw new \Exception('Invalid "sku" param');
-    }
-
-    $request->sku = trim($request->sku);
-  }
-
   private function _validateMultiGetProductByIdListRequest(MultiGetProductByIdListRequest $request) {
     if (!isset($request->idList) || !is_array($request->idList) || count($request->idList) === 0) {
       throw new \Exception('Invalid "idList" param');
-    }
-  }
-
-  private function _validateMultiGetProductBySkuListRequest(MultiGetProductBySkuListRequest $request) {
-    if (!isset($request->skuList) || !is_array($request->skuList) || count($request->skuList) === 0) {
-      throw new \Exception('Invalid "skuList" param');
     }
   }
 
@@ -259,8 +241,8 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetProductByIdRequest
-   * @return \Miczone\Thrift\Catalog\GetProductByIdResponse
+   * @param \Miczone\Thrift\Catalog\Product\GetProductByIdRequest
+   * @return \Miczone\Thrift\Catalog\Product\GetProductByIdResponse
    * @throws \Exception
    */
   public function getProductById(GetProductByIdRequest $request) {
@@ -302,51 +284,8 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetProductBySkuRequest
-   * @return \Miczone\Thrift\Catalog\GetProductBySkuResponse
-   * @throws \Exception
-   */
-  public function getProductBySku(GetProductBySkuRequest $request) {
-    $this->_validateGetProductBySkuRequest($request);
-
-    foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
-
-        try {
-          $transport->open();
-          $result = $client->getProductBySku($this->operationHandle, $request);
-          $transport->close();
-
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
-      }
-    }
-
-    return new GetProductBySkuResponse([
-      'error' => new Error([
-        'code' => ErrorCode::THRIFT_BAD_REQUEST,
-      ]),
-    ]);
-  }
-
-  /**
-   * @param \Miczone\Thrift\Catalog\MultiGetProductByIdListRequest
-   * @return \Miczone\Thrift\Catalog\MultiGetProductByIdListResponse
+   * @param \Miczone\Thrift\Catalog\Product\MultiGetProductByIdListRequest
+   * @return \Miczone\Thrift\Catalog\Product\MultiGetProductByIdListResponse
    * @throws \Exception
    */
   public function multiGetProductByIdList(MultiGetProductByIdListRequest $request) {
@@ -388,51 +327,8 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\MultiGetProductBySkuListRequest
-   * @return \Miczone\Thrift\Catalog\MultiGetProductBySkuListResponse
-   * @throws \Exception
-   */
-  public function multiGetProductBySkuList(MultiGetProductBySkuListRequest $request) {
-    $this->_validateMultiGetProductBySkuListRequest($request);
-
-    foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
-
-        try {
-          $transport->open();
-          $result = $client->multiGetProductBySkuList($this->operationHandle, $request);
-          $transport->close();
-
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
-      }
-    }
-
-    return new MultiGetProductBySkuListResponse([
-      'error' => new Error([
-        'code' => ErrorCode::THRIFT_BAD_REQUEST,
-      ]),
-    ]);
-  }
-
-  /**
-   * @param \Miczone\Thrift\Catalog\GetCategoryByIdRequest
-   * @return \Miczone\Thrift\Catalog\GetCategoryByIdResponse
+   * @param \Miczone\Thrift\Catalog\Product\GetCategoryByIdRequest
+   * @return \Miczone\Thrift\Catalog\Product\GetCategoryByIdResponse
    * @throws \Exception
    */
   public function getCategoryById(GetCategoryByIdRequest $request) {
@@ -474,8 +370,8 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetCategoryBySlugRequest
-   * @return \Miczone\Thrift\Catalog\GetCategoryBySlugResponse
+   * @param \Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest
+   * @return \Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse
    * @throws \Exception
    */
   public function getCategoryBySlug(GetCategoryBySlugRequest $request) {
@@ -517,8 +413,8 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\MultiGetCategoryByIdListRequest
-   * @return \Miczone\Thrift\Catalog\MultiGetCategoryByIdListResponse
+   * @param \Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListRequest
+   * @return \Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListResponse
    * @throws \Exception
    */
   public function multiGetCategoryByIdList(MultiGetCategoryByIdListRequest $request) {
@@ -560,8 +456,8 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\MultiGetCategoryBySlugListRequest
-   * @return \Miczone\Thrift\Catalog\MultiGetCategoryBySlugListResponse
+   * @param \Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListRequest
+   * @return \Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListResponse
    * @throws \Exception
    */
   public function multiGetCategoryBySlugList(MultiGetCategoryBySlugListRequest $request) {
