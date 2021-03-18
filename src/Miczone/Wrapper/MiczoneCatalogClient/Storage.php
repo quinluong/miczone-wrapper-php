@@ -13,6 +13,8 @@ use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogStorageServiceClient;
 use Miczone\Thrift\Catalog\Product\GetProductByIdRequest;
 use Miczone\Thrift\Catalog\Product\GetProductByIdResponse;
+use Miczone\Thrift\Catalog\Product\GetProductListRequest;
+use Miczone\Thrift\Catalog\Product\GetProductListResponse;
 use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListRequest;
 use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListResponse;
 use Miczone\Thrift\Common\Error;
@@ -156,6 +158,18 @@ class Storage {
   private function _validateMultiGetProductByIdListRequest(MultiGetProductByIdListRequest $request) {
     if (!isset($request->idList) || !is_array($request->idList) || count($request->idList) === 0) {
       throw new \Exception('Invalid "idList" param');
+    }
+  }
+
+  private function _validateGetProductListRequest(GetProductListRequest $request) {
+    if (!isset($request->fromId) || !is_string($request->fromId) || trim($request->fromId) === '') {
+      throw new \Exception('Invalid "fromId" param');
+    }
+
+    $request->fromId = trim($request->fromId);
+
+    if (isset($request->limit) && (!is_int($request->limit) || $request->limit <= 0)) {
+      throw new \Exception('Invalid "limit" param');
     }
   }
 
@@ -320,6 +334,49 @@ class Storage {
     }
 
     return new MultiGetProductByIdListResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\Product\GetProductListRequest
+   * @return \Miczone\Thrift\Catalog\Product\GetProductListResponse
+   * @throws \Exception
+   */
+  public function getProductList(GetProductListRequest $request) {
+    $this->_validateGetProductListRequest($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getProductList($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetProductListResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
