@@ -162,7 +162,7 @@ class Storage {
   }
 
   private function _validateGetProductListRequest(GetProductListRequest $request) {
-    if (!isset($request->fromId) || !is_string($request->fromId) || trim($request->fromId) === '') {
+    if (isset($request->fromId) && (!is_string($request->fromId) || trim($request->fromId) === '')) {
       throw new \Exception('Invalid "fromId" param');
     }
 
