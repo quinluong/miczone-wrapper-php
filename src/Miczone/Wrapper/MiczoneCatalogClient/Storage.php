@@ -17,6 +17,8 @@ use Miczone\Thrift\Catalog\Product\GetProductListRequest;
 use Miczone\Thrift\Catalog\Product\GetProductListResponse;
 use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListRequest;
 use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListResponse;
+use Miczone\Thrift\Catalog\Source\GetSourceByIdRequest;
+use Miczone\Thrift\Catalog\Source\GetSourceByIdResponse;
 use Miczone\Thrift\Common\Error;
 use Miczone\Thrift\Common\ErrorCode;
 use Miczone\Thrift\Common\OperationHandle;
@@ -199,6 +201,14 @@ class Storage {
     if (!isset($request->slugList) || !is_array($request->slugList) || count($request->slugList) === 0) {
       throw new \Exception('Invalid "slugList" param');
     }
+  }
+
+  private function _validateGetSourceByIdRequest(GetSourceByIdRequest $request) {
+    if (!isset($request->id) || !is_string($request->id) || trim($request->id) === '') {
+      throw new \Exception('Invalid "id" param');
+    }
+
+    $request->id = trim($request->id);
   }
 
   private function _createTransportAndClient(string $host, int $port) {
@@ -549,6 +559,49 @@ class Storage {
     }
 
     return new MultiGetCategoryBySlugListResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\Source\GetSourceByIdRequest
+   * @return \Miczone\Thrift\Catalog\Source\GetSourceByIdResponse
+   * @throws \Exception
+   */
+  public function getSourceById(GetSourceByIdRequest $request) {
+    $this->_validateGetSourceByIdRequest($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getSourceById($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetSourceByIdResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
