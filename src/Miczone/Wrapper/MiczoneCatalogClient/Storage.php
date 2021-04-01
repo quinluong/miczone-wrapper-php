@@ -6,6 +6,8 @@ use Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryMappingByIdRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryMappingByIdResponse;
 use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListRequest;
 use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListResponse;
 use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListRequest;
@@ -200,6 +202,18 @@ class Storage {
   private function _validateMultiGetCategoryBySlugListRequest(MultiGetCategoryBySlugListRequest $request) {
     if (!isset($request->slugList) || !is_array($request->slugList) || count($request->slugList) === 0) {
       throw new \Exception('Invalid "slugList" param');
+    }
+  }
+
+  private function _validateGetCategoryMappingByIdRequest(GetCategoryMappingByIdRequest $request) {
+    if (!isset($request->id) || !is_string($request->id) || trim($request->id) === '') {
+      throw new \Exception('Invalid "id" param');
+    }
+
+    $request->id = trim($request->id);
+
+    if (isset($request->childDepth) && (!is_int($request->childDepth) || $request->childDepth < 0)) {
+      throw new \Exception('Invalid "childDepth" param');
     }
   }
 
@@ -559,6 +573,49 @@ class Storage {
     }
 
     return new MultiGetCategoryBySlugListResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\Category\GetCategoryMappingByIdRequest
+   * @return \Miczone\Thrift\Catalog\Category\GetCategoryMappingByIdResponse
+   * @throws \Exception
+   */
+  public function getCategoryMappingById(GetCategoryMappingByIdRequest $request) {
+    $this->_validateGetCategoryMappingByIdRequest($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getCategoryMappingById($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetCategoryMappingByIdResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
