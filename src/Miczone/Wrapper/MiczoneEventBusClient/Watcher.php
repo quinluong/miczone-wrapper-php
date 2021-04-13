@@ -203,11 +203,17 @@ class Watcher {
       $this->isRunning = true;
 
       while ($this->isRunning) {
-        $message = $this->consumer->consume(1000);
+        $message = $this->consumer->consume(120000);
 
         switch ($message->err) {
           case RD_KAFKA_RESP_ERR_NO_ERROR:
             $this->_process($message);
+            break;
+
+          case RD_KAFKA_RESP_ERR__PARTITION_EOF:
+            break;
+
+          case RD_KAFKA_RESP_ERR__TIMED_OUT:
             break;
 
           default:
