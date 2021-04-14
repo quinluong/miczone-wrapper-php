@@ -73,6 +73,7 @@ class Watcher {
     $conf->set('group.id', $this->config['groupId']);
     $conf->set('enable.auto.commit', true);
     $conf->set('auto.commit.interval.ms', 1000);
+    $conf->set('queued.max.messages.kbytes', 65536);
     $conf->setDefaultTopicConf($topicConf);
 
     return $conf;
