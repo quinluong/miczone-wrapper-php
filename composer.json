@@ -6,7 +6,7 @@
   "prefer-stable": true,
   "require": {
     "php": ">=7.0",
-    "quinluong/miczone-thrift-php": "0.0.18"
+    "quinluong/miczone-thrift-php": "0.0.19"
   },
   "autoload": {
     "psr-4": {

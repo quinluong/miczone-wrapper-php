@@ -211,6 +211,14 @@ class Gateway {
     return [$transport, $client];
   }
 
+  public function setTraceId(string $value) {
+    if ($value === null || trim($value) === '') {
+      throw new \Exception('Invalid "value" param');
+    }
+
+    $this->operationHandle->traceId = trim($value);
+  }
+
   public function getLastException() {
     return $this->lastException;
   }
