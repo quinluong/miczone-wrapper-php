@@ -12,6 +12,7 @@ use Miczone\Thrift\Catalog\Search\SearchProductResponse;
 use Miczone\Thrift\Common\Error;
 use Miczone\Thrift\Common\ErrorCode;
 use Miczone\Thrift\Common\OperationHandle;
+use Miczone\Thrift\Common\ScaleMode;
 use Thrift\Exception\TException;
 use Thrift\Exception\TTransportException;
 use Thrift\Protocol\TBinaryProtocol;
@@ -31,6 +32,8 @@ class Gateway {
 
   const NUMBER_OF_RETRIES = 3;
 
+  const SCALE_MODE = ScaleMode::BALANCING;
+
   protected $config;
 
   protected $operationHandle;
@@ -44,6 +47,7 @@ class Gateway {
       'sendTimeoutInMilliseconds' => static::SEND_TIMEOUT_IN_MILLISECONDS,
       'receiveTimeoutInMilliseconds' => static::RECEIVE_TIMEOUT_IN_MILLISECONDS,
       'numberOfRetries' => static::NUMBER_OF_RETRIES,
+      'scaleMode' => static::SCALE_MODE,
     ], $config);
 
     $config['hosts'] = $this->_standardizeHosts($config['hosts']);
@@ -199,8 +203,8 @@ class Gateway {
 
   private function _createTransportAndClient(string $host, int $port) {
     $socket = new TSocket($host, $port);
-    $socket->setSendTimeout($this->config['receiveTimeoutInMilliseconds']);
-    $socket->setRecvTimeout($this->config['sendTimeoutInMilliseconds']);
+    $socket->setSendTimeout($this->config['sendTimeoutInMilliseconds']);
+    $socket->setRecvTimeout($this->config['receiveTimeoutInMilliseconds']);
 
     $transport = new TFramedTransport($socket);
 
@@ -209,6 +213,50 @@ class Gateway {
     $client = new MiczoneCatalogGatewayServiceClient($protocol);
 
     return [$transport, $client];
+  }
+
+  private function _getTransportAndClient() {
+    $poolSize = count($this->config['hosts']);
+
+    if ($this->config['scaleMode'] === ScaleMode::BALANCING) {
+      $randomPoolIndex = rand(0, $poolSize - 1);
+
+      for ($i = $randomPoolIndex; $i < $randomPoolIndex + $poolSize; ++$i) {
+        $hostPortPair = $this->config['hosts'][$i % $poolSize];
+
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          continue;
+        }
+
+        return [$transport, $client];
+      }
+
+      // Get first host-port
+      $hostPortPair = $this->config['hosts'][0];
+
+      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+    } else {
+      for ($i = 0; $i < $poolSize; ++$i) {
+        $hostPortPair = $this->config['hosts'][$i];
+
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          continue;
+        }
+
+        return [$transport, $client];
+      }
+
+      // Get first host-port
+      $hostPortPair = $this->config['hosts'][0];
+
+      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+    }
+
+    throw new \Exception('Not supported yet');
   }
 
   public function setTraceId(string $value) {

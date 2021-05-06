@@ -316,8 +316,8 @@ class MiczoneMailClient {
 
   private function _createTransportAndClient($host, $port) {
     $socket = new TSocket($host, $port);
-    $socket->setSendTimeout($this->config['receiveTimeoutInMilliseconds']);
-    $socket->setRecvTimeout($this->config['sendTimeoutInMilliseconds']);
+    $socket->setSendTimeout($this->config['sendTimeoutInMilliseconds']);
+    $socket->setRecvTimeout($this->config['receiveTimeoutInMilliseconds']);
 
     $transport = new TFramedTransport($socket);
 
