@@ -4,6 +4,8 @@ namespace Miczone\Wrapper\MiczoneCatalogClient;
 
 use Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryOriginalIdRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryOriginalIdResponse;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogGatewayServiceClient;
@@ -199,6 +201,14 @@ class Gateway {
     }
 
     $request->slug = trim($request->slug);
+  }
+
+  private function _validateGetCategoryByOriginalCategoryOriginalIdRequest(GetCategoryByOriginalCategoryOriginalIdRequest $request) {
+    if (!isset($request->originalCategoryOriginalId) || !is_string($request->originalCategoryOriginalId) || trim($request->originalCategoryOriginalId) === '') {
+      throw new \Exception('Invalid "originalCategoryOriginalId" param');
+    }
+
+    $request->originalCategoryOriginalId = trim($request->originalCategoryOriginalId);
   }
 
   private function _createTransportAndClient(string $host, int $port) {
@@ -429,6 +439,49 @@ class Gateway {
     }
 
     return new GetCategoryBySlugResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryOriginalIdRequest
+   * @return \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryOriginalIdResponse
+   * @throws \Exception
+   */
+  public function getCategoryByOriginalCategoryOriginalId(GetCategoryByOriginalCategoryOriginalIdRequest $request) {
+    $this->_validateGetCategoryByOriginalCategoryOriginalIdRequest($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getCategoryByOriginalCategoryOriginalId($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetCategoryByOriginalCategoryOriginalIdResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
