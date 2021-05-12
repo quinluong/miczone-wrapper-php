@@ -220,11 +220,11 @@ class Gateway {
 
     $request->productSku = trim($request->productSku);
 
-    if (!isset($request->originalCategoryOriginalId) || !is_string($request->originalCategoryOriginalId) || trim($request->originalCategoryOriginalId) === '') {
-      throw new \Exception('Invalid "originalCategoryOriginalId" param');
+    if (!isset($request->originalMerchantOriginalId) || !is_string($request->originalMerchantOriginalId) || trim($request->originalMerchantOriginalId) === '') {
+      throw new \Exception('Invalid "originalMerchantOriginalId" param');
     }
 
-    $request->originalCategoryOriginalId = trim($request->originalCategoryOriginalId);
+    $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
   }
 
   private function _createTransportAndClient(string $host, int $port) {
