@@ -15,8 +15,8 @@ use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogStorageServiceClient;
 use Miczone\Thrift\Catalog\Product\GetProductByIdRequest;
 use Miczone\Thrift\Catalog\Product\GetProductByIdResponse;
-use Miczone\Thrift\Catalog\Product\GetProductListRequest;
-use Miczone\Thrift\Catalog\Product\GetProductListResponse;
+use Miczone\Thrift\Catalog\Product\GetSliceProductRequest;
+use Miczone\Thrift\Catalog\Product\GetSliceProductResponse;
 use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListRequest;
 use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListResponse;
 use Miczone\Thrift\Catalog\Source\GetSourceByIdRequest;
@@ -165,7 +165,7 @@ class Storage {
     }
   }
 
-  private function _validateGetProductListRequest(GetProductListRequest $request) {
+  private function _validateGetSliceProductRequest(GetSliceProductRequest $request) {
     if (isset($request->fromId) && (!is_string($request->fromId) || trim($request->fromId) === '')) {
       throw new \Exception('Invalid "fromId" param');
     }
@@ -373,12 +373,12 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\Product\GetProductListRequest
-   * @return \Miczone\Thrift\Catalog\Product\GetProductListResponse
+   * @param \Miczone\Thrift\Catalog\Product\GetSliceProductRequest
+   * @return \Miczone\Thrift\Catalog\Product\GetSliceProductResponse
    * @throws \Exception
    */
-  public function getProductList(GetProductListRequest $request) {
-    $this->_validateGetProductListRequest($request);
+  public function getSliceProduct(GetSliceProductRequest $request) {
+    $this->_validateGetSliceProductRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -391,7 +391,7 @@ class Storage {
 
         try {
           $transport->open();
-          $result = $client->getProductList($this->operationHandle, $request);
+          $result = $client->getSliceProduct($this->operationHandle, $request);
           $transport->close();
 
           return $result;
@@ -408,7 +408,7 @@ class Storage {
       }
     }
 
-    return new GetProductListResponse([
+    return new GetSliceProductResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),

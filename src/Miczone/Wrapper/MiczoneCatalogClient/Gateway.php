@@ -4,8 +4,10 @@ namespace Miczone\Wrapper\MiczoneCatalogClient;
 
 use Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse;
-use Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryOriginalIdRequest;
-use Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryOriginalIdResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryResponse;
+use Miczone\Thrift\Catalog\Category\GetCategoryByProductSkuAndOriginalMerchantRequest;
+use Miczone\Thrift\Catalog\Category\GetCategoryByProductSkuAndOriginalMerchantResponse;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogGatewayServiceClient;
@@ -203,7 +205,21 @@ class Gateway {
     $request->slug = trim($request->slug);
   }
 
-  private function _validateGetCategoryByOriginalCategoryOriginalIdRequest(GetCategoryByOriginalCategoryOriginalIdRequest $request) {
+  private function _validateGetCategoryByOriginalCategoryRequest(GetCategoryByOriginalCategoryRequest $request) {
+    if (!isset($request->originalCategoryOriginalId) || !is_string($request->originalCategoryOriginalId) || trim($request->originalCategoryOriginalId) === '') {
+      throw new \Exception('Invalid "originalCategoryOriginalId" param');
+    }
+
+    $request->originalCategoryOriginalId = trim($request->originalCategoryOriginalId);
+  }
+
+  private function _validateGetCategoryByProductSkuAndOriginalMerchantRequest(GetCategoryByProductSkuAndOriginalMerchantRequest $request) {
+    if (!isset($request->productSku) || !is_string($request->productSku) || trim($request->productSku) === '') {
+      throw new \Exception('Invalid "productSku" param');
+    }
+
+    $request->productSku = trim($request->productSku);
+
     if (!isset($request->originalCategoryOriginalId) || !is_string($request->originalCategoryOriginalId) || trim($request->originalCategoryOriginalId) === '') {
       throw new \Exception('Invalid "originalCategoryOriginalId" param');
     }
@@ -446,12 +462,12 @@ class Gateway {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryOriginalIdRequest
-   * @return \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryOriginalIdResponse
+   * @param \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryRequest
+   * @return \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryResponse
    * @throws \Exception
    */
-  public function getCategoryByOriginalCategoryOriginalId(GetCategoryByOriginalCategoryOriginalIdRequest $request) {
-    $this->_validateGetCategoryByOriginalCategoryOriginalIdRequest($request);
+  public function getCategoryByOriginalCategory(GetCategoryByOriginalCategoryRequest $request) {
+    $this->_validateGetCategoryByOriginalCategoryRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -464,7 +480,7 @@ class Gateway {
 
         try {
           $transport->open();
-          $result = $client->getCategoryByOriginalCategoryOriginalId($this->operationHandle, $request);
+          $result = $client->getCategoryByOriginalCategory($this->operationHandle, $request);
           $transport->close();
 
           return $result;
@@ -481,7 +497,50 @@ class Gateway {
       }
     }
 
-    return new GetCategoryByOriginalCategoryOriginalIdResponse([
+    return new GetCategoryByOriginalCategoryResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\GetCategoryByProductSkuAndOriginalMerchantRequest
+   * @return \Miczone\Thrift\Catalog\GetCategoryByProductSkuAndOriginalMerchantResponse
+   * @throws \Exception
+   */
+  public function getCategoryByProductSkuAndOriginalMerchant(GetCategoryByProductSkuAndOriginalMerchantRequest $request) {
+    $this->_validateGetCategoryByProductSkuAndOriginalMerchantRequest($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getCategoryByProductSkuAndOriginalMerchant($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetCategoryByProductSkuAndOriginalMerchantResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
