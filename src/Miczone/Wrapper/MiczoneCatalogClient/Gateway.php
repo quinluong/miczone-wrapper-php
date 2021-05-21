@@ -2,6 +2,8 @@
 
 namespace Miczone\Wrapper\MiczoneCatalogClient;
 
+use Miczone\Thrift\Catalog\Breadcrumb\MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest;
+use Miczone\Thrift\Catalog\Breadcrumb\MultiGetBreadcrumbListByProductSkuAndOriginalMerchantResponse;
 use Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse;
 use Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryRequest;
@@ -227,6 +229,12 @@ class Gateway {
     $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
   }
 
+  private function _validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchant(MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest $request) {
+    if (!isset($request->dataMap) || !is_array($request->dataMap) || count($request->dataMap) === 0) {
+      throw new \Exception('Invalid "dataMap" param');
+    }
+  }
+
   private function _createTransportAndClient(string $host, int $port) {
     $socket = new TSocket($host, $port);
     $socket->setSendTimeout($this->config['sendTimeoutInMilliseconds']);
@@ -333,8 +341,8 @@ class Gateway {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\SearchProductRequest
-   * @return \Miczone\Thrift\Catalog\SearchProductResponse
+   * @param \Miczone\Thrift\Catalog\Search\SearchProductRequest
+   * @return \Miczone\Thrift\Catalog\Search\SearchProductResponse
    * @throws \Exception
    */
   public function searchProduct(SearchProductRequest $request) {
@@ -376,8 +384,8 @@ class Gateway {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetCategoryByIdRequest
-   * @return \Miczone\Thrift\Catalog\GetCategoryByIdResponse
+   * @param \Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest
+   * @return \Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse
    * @throws \Exception
    */
   public function getCategoryById(GetCategoryByIdRequest $request) {
@@ -419,8 +427,8 @@ class Gateway {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetCategoryBySlugRequest
-   * @return \Miczone\Thrift\Catalog\GetCategoryBySlugResponse
+   * @param \Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest
+   * @return \Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse
    * @throws \Exception
    */
   public function getCategoryBySlug(GetCategoryBySlugRequest $request) {
@@ -462,8 +470,8 @@ class Gateway {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryRequest
-   * @return \Miczone\Thrift\Catalog\GetCategoryByOriginalCategoryResponse
+   * @param \Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryRequest
+   * @return \Miczone\Thrift\Catalog\Category\GetCategoryByOriginalCategoryResponse
    * @throws \Exception
    */
   public function getCategoryByOriginalCategory(GetCategoryByOriginalCategoryRequest $request) {
@@ -505,8 +513,8 @@ class Gateway {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\GetCategoryByProductSkuAndOriginalMerchantRequest
-   * @return \Miczone\Thrift\Catalog\GetCategoryByProductSkuAndOriginalMerchantResponse
+   * @param \Miczone\Thrift\Catalog\Category\GetCategoryByProductSkuAndOriginalMerchantRequest
+   * @return \Miczone\Thrift\Catalog\Category\GetCategoryByProductSkuAndOriginalMerchantResponse
    * @throws \Exception
    */
   public function getCategoryByProductSkuAndOriginalMerchant(GetCategoryByProductSkuAndOriginalMerchantRequest $request) {
@@ -541,6 +549,49 @@ class Gateway {
     }
 
     return new GetCategoryByProductSkuAndOriginalMerchantResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\Breadcrumb\MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest
+   * @return \Miczone\Thrift\Catalog\Breadcrumb\MultiGetBreadcrumbListByProductSkuAndOriginalMerchantResponse
+   * @throws \Exception
+   */
+  public function multiGetBreadcrumbListByProductSkuAndOriginalMerchant(MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest $request) {
+    $this->_validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchant($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->multiGetBreadcrumbListByProductSkuAndOriginalMerchant($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new MultiGetBreadcrumbListByProductSkuAndOriginalMerchantResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),

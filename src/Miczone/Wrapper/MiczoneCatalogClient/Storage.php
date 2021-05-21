@@ -416,8 +416,8 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\Product\GetCategoryByIdRequest
-   * @return \Miczone\Thrift\Catalog\Product\GetCategoryByIdResponse
+   * @param \Miczone\Thrift\Catalog\Category\GetCategoryByIdRequest
+   * @return \Miczone\Thrift\Catalog\Category\GetCategoryByIdResponse
    * @throws \Exception
    */
   public function getCategoryById(GetCategoryByIdRequest $request) {
