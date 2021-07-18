@@ -13,6 +13,8 @@ use Miczone\Thrift\Catalog\Category\GetCategoryByProductSkuAndOriginalMerchantRe
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogGatewayServiceClient;
+use Miczone\Thrift\Catalog\Product\GetMatrixProductRequest;
+use Miczone\Thrift\Catalog\Product\GetMatrixProductResponse;
 use Miczone\Thrift\Catalog\Search\SearchProductRequest;
 use Miczone\Thrift\Catalog\Search\SearchProductResponse;
 use Miczone\Thrift\Common\Error;
@@ -233,6 +235,32 @@ class Gateway {
     if (!isset($request->dataMap) || !is_array($request->dataMap) || count($request->dataMap) === 0) {
       throw new \Exception('Invalid "dataMap" param');
     }
+  }
+
+  private function _validateGetMatrixProduct(GetMatrixProductRequest $request) {
+    if (!isset($request->websiteCode) || !is_string($request->websiteCode) || trim($request->websiteCode) === '') {
+      throw new \Exception('Invalid "websiteCode" param');
+    }
+
+    $request->websiteCode = trim($request->websiteCode);
+
+    if (!isset($request->countryCode) || !is_string($request->countryCode) || trim($request->countryCode) === '') {
+      throw new \Exception('Invalid "countryCode" param');
+    }
+
+    $request->countryCode = trim($request->countryCode);
+
+    if (!isset($request->productSku) || !is_string($request->productSku) || trim($request->productSku) === '') {
+      throw new \Exception('Invalid "productSku" param');
+    }
+
+    $request->productSku = trim($request->productSku);
+
+    if (!isset($request->originalMerchantOriginalId) || !is_string($request->originalMerchantOriginalId) || trim($request->originalMerchantOriginalId) === '') {
+      throw new \Exception('Invalid "originalMerchantOriginalId" param');
+    }
+
+    $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
   }
 
   private function _createTransportAndClient(string $host, int $port) {
@@ -592,6 +620,49 @@ class Gateway {
     }
 
     return new MultiGetBreadcrumbListByProductSkuAndOriginalMerchantResponse([
+      'error' => new Error([
+        'code' => ErrorCode::THRIFT_BAD_REQUEST,
+      ]),
+    ]);
+  }
+
+  /**
+   * @param \Miczone\Thrift\Catalog\Product\GetMatrixProductRequest
+   * @return \Miczone\Thrift\Catalog\Product\GetMatrixProductResponse
+   * @throws \Exception
+   */
+  public function getMatrixProduct(GetMatrixProductRequest $request) {
+    $this->_validateGetMatrixProduct($request);
+
+    foreach ($this->config['hosts'] as $hostPortPair) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          // Do something ...
+          break;
+        }
+
+        try {
+          $transport->open();
+          $result = $client->getMatrixProduct($this->operationHandle, $request);
+          $transport->close();
+
+          return $result;
+        } catch (TTransportException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (TException $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        } catch (\Exception $ex) {
+          $this->lastException = $ex;
+          // Do something ...
+        }
+      }
+    }
+
+    return new GetMatrixProductResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
