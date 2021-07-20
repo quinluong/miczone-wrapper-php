@@ -8,17 +8,17 @@ use Miczone\Thrift\Catalog\Category\GetCategoryBySlugRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryBySlugResponse;
 use Miczone\Thrift\Catalog\Category\GetCategoryMappingByIdRequest;
 use Miczone\Thrift\Catalog\Category\GetCategoryMappingByIdResponse;
-use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListRequest;
-use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListResponse;
-use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListRequest;
-use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListResponse;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdRequest;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdResponse;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugRequest;
+use Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugResponse;
 use Miczone\Thrift\Catalog\MiczoneCatalogStorageServiceClient;
 use Miczone\Thrift\Catalog\Product\GetProductByIdRequest;
 use Miczone\Thrift\Catalog\Product\GetProductByIdResponse;
 use Miczone\Thrift\Catalog\Product\GetSliceProductRequest;
 use Miczone\Thrift\Catalog\Product\GetSliceProductResponse;
-use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListRequest;
-use Miczone\Thrift\Catalog\Product\MultiGetProductByIdListResponse;
+use Miczone\Thrift\Catalog\Product\MultiGetProductByIdRequest;
+use Miczone\Thrift\Catalog\Product\MultiGetProductByIdResponse;
 use Miczone\Thrift\Catalog\Source\GetSourceByIdRequest;
 use Miczone\Thrift\Catalog\Source\GetSourceByIdResponse;
 use Miczone\Thrift\Common\Error;
@@ -159,7 +159,7 @@ class Storage {
     $request->id = trim($request->id);
   }
 
-  private function _validateMultiGetProductByIdListRequest(MultiGetProductByIdListRequest $request) {
+  private function _validateMultiGetProductByIdRequest(MultiGetProductByIdRequest $request) {
     if (!isset($request->idList) || !is_array($request->idList) || count($request->idList) === 0) {
       throw new \Exception('Invalid "idList" param');
     }
@@ -193,13 +193,13 @@ class Storage {
     $request->slug = trim($request->slug);
   }
 
-  private function _validateMultiGetCategoryByIdListRequest(MultiGetCategoryByIdListRequest $request) {
+  private function _validateMultiGetCategoryByIdRequest(MultiGetCategoryByIdRequest $request) {
     if (!isset($request->idList) || !is_array($request->idList) || count($request->idList) === 0) {
       throw new \Exception('Invalid "idList" param');
     }
   }
 
-  private function _validateMultiGetCategoryBySlugListRequest(MultiGetCategoryBySlugListRequest $request) {
+  private function _validateMultiGetCategoryBySlugRequest(MultiGetCategoryBySlugRequest $request) {
     if (!isset($request->slugList) || !is_array($request->slugList) || count($request->slugList) === 0) {
       throw new \Exception('Invalid "slugList" param');
     }
@@ -330,12 +330,12 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\Product\MultiGetProductByIdListRequest
-   * @return \Miczone\Thrift\Catalog\Product\MultiGetProductByIdListResponse
+   * @param \Miczone\Thrift\Catalog\Product\MultiGetProductByIdRequest
+   * @return \Miczone\Thrift\Catalog\Product\MultiGetProductByIdResponse
    * @throws \Exception
    */
-  public function multiGetProductByIdList(MultiGetProductByIdListRequest $request) {
-    $this->_validateMultiGetProductByIdListRequest($request);
+  public function multiGetProductByIdList(MultiGetProductByIdRequest $request) {
+    $this->_validateMultiGetProductByIdRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -348,7 +348,7 @@ class Storage {
 
         try {
           $transport->open();
-          $result = $client->multiGetProductByIdList($this->operationHandle, $request);
+          $result = $client->multiGetProductById($this->operationHandle, $request);
           $transport->close();
 
           return $result;
@@ -365,7 +365,7 @@ class Storage {
       }
     }
 
-    return new MultiGetProductByIdListResponse([
+    return new MultiGetProductByIdResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
@@ -502,12 +502,12 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListRequest
-   * @return \Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdListResponse
+   * @param \Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdRequest
+   * @return \Miczone\Thrift\Catalog\Category\MultiGetCategoryByIdResponse
    * @throws \Exception
    */
-  public function multiGetCategoryByIdList(MultiGetCategoryByIdListRequest $request) {
-    $this->_validateMultiGetCategoryByIdListRequest($request);
+  public function multiGetCategoryByIdList(MultiGetCategoryByIdRequest $request) {
+    $this->_validateMultiGetCategoryByIdRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -520,7 +520,7 @@ class Storage {
 
         try {
           $transport->open();
-          $result = $client->multiGetCategoryByIdList($this->operationHandle, $request);
+          $result = $client->multiGetCategoryById($this->operationHandle, $request);
           $transport->close();
 
           return $result;
@@ -537,7 +537,7 @@ class Storage {
       }
     }
 
-    return new MultiGetCategoryByIdListResponse([
+    return new MultiGetCategoryByIdResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
@@ -545,12 +545,12 @@ class Storage {
   }
 
   /**
-   * @param \Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListRequest
-   * @return \Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugListResponse
+   * @param \Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugRequest
+   * @return \Miczone\Thrift\Catalog\Category\MultiGetCategoryBySlugResponse
    * @throws \Exception
    */
-  public function multiGetCategoryBySlugList(MultiGetCategoryBySlugListRequest $request) {
-    $this->_validateMultiGetCategoryBySlugListRequest($request);
+  public function multiGetCategoryBySlugList(MultiGetCategoryBySlugRequest $request) {
+    $this->_validateMultiGetCategoryBySlugRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
       for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
@@ -563,7 +563,7 @@ class Storage {
 
         try {
           $transport->open();
-          $result = $client->multiGetCategoryBySlugList($this->operationHandle, $request);
+          $result = $client->multiGetCategoryBySlug($this->operationHandle, $request);
           $transport->close();
 
           return $result;
@@ -580,7 +580,7 @@ class Storage {
       }
     }
 
-    return new MultiGetCategoryBySlugListResponse([
+    return new MultiGetCategoryBySlugResponse([
       'error' => new Error([
         'code' => ErrorCode::THRIFT_BAD_REQUEST,
       ]),
