@@ -37,11 +37,11 @@ class Storage {
 
   const AUTH = '';
 
-  const SEND_TIMEOUT_IN_MILLISECONDS = 5000;
+  const SEND_TIMEOUT_IN_MILLISECONDS = 2000;
 
-  const RECEIVE_TIMEOUT_IN_MILLISECONDS = 5000;
+  const RECEIVE_TIMEOUT_IN_MILLISECONDS = 2000;
 
-  const NUMBER_OF_RETRIES = 3;
+  const NUMBER_OF_RETRIES = 1;
 
   protected $config;
 
