@@ -51,6 +51,14 @@ class Gateway extends MiczoneClientBase {
 
   protected $lastException;
 
+  private $_hostPorts;
+
+  private $_hostPortsAliveStatus;
+
+  private $_totalLoop;
+
+  private $_poolSelectOption;
+
   public function __construct(array $config = []) {
     $config = array_merge([
       'hosts' => static::HOSTS,
@@ -61,11 +69,15 @@ class Gateway extends MiczoneClientBase {
       'scaleMode' => static::SCALE_MODE,
     ], $config);
 
-    $config['hosts'] = $this->standardizeHosts($config['hosts']);
+    $config['hostPorts'] = $this->standardizeHosts($config['hosts']);
 
-    if (empty($config['hosts'])) {
+    if (empty($config['hostPorts'])) {
       throw new \Exception('Invalid "hosts" config');
     }
+
+    $this->_hostPorts = $config['hostPorts'];
+
+    $this->_hostPortsAliveStatus = $this->initHostPortsAliveStatus($this->_hostPorts);
 
     $config['auth'] = $this->standardizeAuth($config['auth']);
 
@@ -85,6 +97,8 @@ class Gateway extends MiczoneClientBase {
       $config['numberOfRetries'] = static::NUMBER_OF_RETRIES;
     }
 
+    $this->_totalLoop = $config['numberOfRetries'] + 1;
+
     if (!is_int($config['scaleMode']) || ($config['scaleMode'] !== ScaleMode::BALANCING && $config['scaleMode'] !== ScaleMode::FAIL_OVER)) {
       $config['scaleMode'] = static::SCALE_MODE;
     }
@@ -94,6 +108,8 @@ class Gateway extends MiczoneClientBase {
     } else {
       $config['poolSelectOption'] = PoolSelectOption::ALIVE_OR_FIRST;
     }
+
+    $this->_poolSelectOption = $config['poolSelectOption'];
 
     $this->config = $config;
 
@@ -121,46 +137,59 @@ class Gateway extends MiczoneClientBase {
   }
 
   private function _getTransportAndClient() {
-    $hosts = $this->config['hosts'];
+    $hostPorts = $this->_hostPorts;
+    $hostPortsAliveStatus = $this->_hostPortsAliveStatus;
+    $poolSize = count($hostPorts);
+    $getFirstHostPort = false;
 
-    $poolSize = count($hosts);
-
-    if ($this->config['poolSelectOption'] === PoolSelectOption::ANY_ALIVE_OR_FIRST) {
+    if ($this->_poolSelectOption === PoolSelectOption::ANY_ALIVE_OR_FIRST) {
       $randomPoolIndex = rand(0, $poolSize - 1);
 
       for ($i = $randomPoolIndex; $i < $randomPoolIndex + $poolSize; ++$i) {
-        $hostPortPair = $hosts[$i % $poolSize];
+        $hostPort = $hostPorts[$i % $poolSize];
 
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-
-        if ($client === null) {
+        if ($this->getHostPortAliveStatus($hostPortsAliveStatus, $hostPort) === false) {
           continue;
         }
 
-        return [$transport, $client];
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+
+        if ($transport === null || $client === null) {
+          continue;
+        }
+
+        return [$transport, $client, $hostPort];
       }
 
-      // Get first host-port
-      $hostPortPair = $hosts[0];
-
-      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-    } else {
+      $getFirstHostPort = true;
+    } else if ($this->_poolSelectOption === PoolSelectOption::ALIVE_OR_FIRST) {
       for ($i = 0; $i < $poolSize; ++$i) {
-        $hostPortPair = $hosts[$i];
+        $hostPort = $hostPorts[$i];
 
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-
-        if ($client === null) {
+        if ($this->getHostPortAliveStatus($hostPortsAliveStatus, $hostPort) === false) {
           continue;
         }
 
-        return [$transport, $client];
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+
+        if ($transport === null || $client === null) {
+          continue;
+        }
+
+        return [$transport, $client, $hostPort];
       }
 
-      // Get first host-port
-      $hostPortPair = $hosts[0];
+      $getFirstHostPort = true;
+    }
 
-      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+    if ($getFirstHostPort) {
+      $hostPort = $hostPorts[0];
+
+      list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+
+      // Don't need to check null anymore
+
+      return [$transport, $client, $hostPort];
     }
 
     throw new \Exception('Not supported yet');
@@ -294,12 +323,12 @@ class Gateway extends MiczoneClientBase {
    * @return \Miczone\Thrift\Common\ErrorCode
    */
   public function ping() {
-    for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-      list($transport, $client) = $this->_getTransportAndClient();
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-      if ($client === null) {
+      if ($transport === null || $client === null) {
         // Do something ...
-        break;
+        continue;
       }
 
       try {
@@ -310,12 +339,15 @@ class Gateway extends MiczoneClientBase {
         return $result;
       } catch (TTransportException $ex) {
         $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
         // Do something ...
       } catch (TException $ex) {
         $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
         // Do something ...
       } catch (\Exception $ex) {
         $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
         // Do something ...
       }
     }
@@ -331,9 +363,9 @@ class Gateway extends MiczoneClientBase {
   public function searchProduct(SearchProductRequest $request) {
     $this->_validateSearchProductRequest($request);
 
-    foreach ($this->config['hosts'] as $hostPortPair) {
+    foreach ($this->config['hostPorts'] as $hostPort) {
       for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
 
         if ($client === null) {
           // Do something ...
@@ -374,9 +406,9 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryById(GetCategoryByIdRequest $request) {
     $this->_validateGetCategoryByIdRequest($request);
 
-    foreach ($this->config['hosts'] as $hostPortPair) {
+    foreach ($this->config['hostPorts'] as $hostPort) {
       for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
 
         if ($client === null) {
           // Do something ...
@@ -417,9 +449,9 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryBySlug(GetCategoryBySlugRequest $request) {
     $this->_validateGetCategoryBySlugRequest($request);
 
-    foreach ($this->config['hosts'] as $hostPortPair) {
+    foreach ($this->config['hostPorts'] as $hostPort) {
       for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
 
         if ($client === null) {
           // Do something ...
@@ -460,9 +492,9 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryByOriginalCategory(GetCategoryByOriginalCategoryRequest $request) {
     $this->_validateGetCategoryByOriginalCategoryRequest($request);
 
-    foreach ($this->config['hosts'] as $hostPortPair) {
+    foreach ($this->config['hostPorts'] as $hostPort) {
       for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
 
         if ($client === null) {
           // Do something ...
@@ -503,9 +535,9 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryByProductSkuAndOriginalMerchant(GetCategoryByProductSkuAndOriginalMerchantRequest $request) {
     $this->_validateGetCategoryByProductSkuAndOriginalMerchantRequest($request);
 
-    foreach ($this->config['hosts'] as $hostPortPair) {
+    foreach ($this->config['hostPorts'] as $hostPort) {
       for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
 
         if ($client === null) {
           // Do something ...
@@ -546,9 +578,9 @@ class Gateway extends MiczoneClientBase {
   public function multiGetBreadcrumbListByProductSkuAndOriginalMerchant(MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest $request) {
     $this->_validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchant($request);
 
-    foreach ($this->config['hosts'] as $hostPortPair) {
+    foreach ($this->config['hostPorts'] as $hostPort) {
       for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
 
         if ($client === null) {
           // Do something ...
@@ -589,9 +621,9 @@ class Gateway extends MiczoneClientBase {
   public function getMatrixProduct(GetMatrixProductRequest $request) {
     $this->_validateGetMatrixProduct($request);
 
-    foreach ($this->config['hosts'] as $hostPortPair) {
+    foreach ($this->config['hostPorts'] as $hostPort) {
       for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
 
         if ($client === null) {
           // Do something ...

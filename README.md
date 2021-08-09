@@ -8,6 +8,13 @@ This library can be installed via Composer:
 composer require quinluong/miczone-wrapper-php
 ```
 
+## Test
+
+```bash
+./vendor/phpunit/phpunit/phpunit --verbose tests
+./vendor/phpunit/phpunit/phpunit --repeat 10 --verbose tests
+```
+
 ## EventBus
 
 ### Prerequisite libraries

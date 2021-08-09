@@ -12,5 +12,8 @@
     "psr-4": {
       "Miczone\\": "src/Miczone/"
     }
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^8"
   }
 }
