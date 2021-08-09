@@ -37,7 +37,7 @@ class Storage {
 
   const AUTH = '';
 
-  const SEND_TIMEOUT_IN_MILLISECONDS = 2000;
+  const SEND_TIMEOUT_IN_MILLISECONDS = 1000;
 
   const RECEIVE_TIMEOUT_IN_MILLISECONDS = 2000;
 

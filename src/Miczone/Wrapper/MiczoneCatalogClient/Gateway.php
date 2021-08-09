@@ -20,21 +20,24 @@ use Miczone\Thrift\Catalog\Search\SearchProductResponse;
 use Miczone\Thrift\Common\Error;
 use Miczone\Thrift\Common\ErrorCode;
 use Miczone\Thrift\Common\OperationHandle;
+use Miczone\Thrift\Common\PoolSelectOption;
 use Miczone\Thrift\Common\ScaleMode;
+use Miczone\Wrapper\MiczoneClientBase;
 use Thrift\Exception\TException;
 use Thrift\Exception\TTransportException;
 use Thrift\Protocol\TBinaryProtocol;
 use Thrift\Transport\TFramedTransport;
 use Thrift\Transport\TSocket;
 
-class Gateway {
+class Gateway extends MiczoneClientBase {
+
   const CLIENT_VERSION = 'v1.0';
 
   const HOSTS = [];
 
   const AUTH = '';
 
-  const SEND_TIMEOUT_IN_MILLISECONDS = 2000;
+  const SEND_TIMEOUT_IN_MILLISECONDS = 1000;
 
   const RECEIVE_TIMEOUT_IN_MILLISECONDS = 2000;
 
@@ -58,13 +61,13 @@ class Gateway {
       'scaleMode' => static::SCALE_MODE,
     ], $config);
 
-    $config['hosts'] = $this->_standardizeHosts($config['hosts']);
+    $config['hosts'] = $this->standardizeHosts($config['hosts']);
 
     if (empty($config['hosts'])) {
       throw new \Exception('Invalid "hosts" config');
     }
 
-    $config['auth'] = $this->_standardizeAuth($config['auth']);
+    $config['auth'] = $this->standardizeAuth($config['auth']);
 
     if (empty($config['auth'])) {
       throw new \Exception('Invalid "auth" config');
@@ -82,6 +85,16 @@ class Gateway {
       $config['numberOfRetries'] = static::NUMBER_OF_RETRIES;
     }
 
+    if (!is_int($config['scaleMode']) || ($config['scaleMode'] !== ScaleMode::BALANCING && $config['scaleMode'] !== ScaleMode::FAIL_OVER)) {
+      $config['scaleMode'] = static::SCALE_MODE;
+    }
+
+    if ($config['scaleMode'] === ScaleMode::BALANCING) {
+      $config['poolSelectOption'] = PoolSelectOption::ANY_ALIVE_OR_FIRST;
+    } else {
+      $config['poolSelectOption'] = PoolSelectOption::ALIVE_OR_FIRST;
+    }
+
     $this->config = $config;
 
     $this->operationHandle = new OperationHandle([
@@ -93,62 +106,76 @@ class Gateway {
   public function __destruct() {
   }
 
-  private function _standardizeHosts(string $hosts) {
-    if (empty($hosts)) {
-      return [];
-    }
+  private function _createTransportAndClient(string $host, int $port) {
+    $socket = new TSocket($host, $port);
+    $socket->setSendTimeout($this->config['sendTimeoutInMilliseconds']);
+    $socket->setRecvTimeout($this->config['receiveTimeoutInMilliseconds']);
 
-    $hosts = explode(',', $hosts);
+    $transport = new TFramedTransport($socket);
 
-    if (empty($hosts)) {
-      return [];
-    }
+    $protocol = new TBinaryProtocol($transport);
 
-    $result = [];
+    $client = new MiczoneCatalogGatewayServiceClient($protocol);
 
-    foreach ($hosts as $item) {
-      $hostPortPair = explode(':', $item);
-      if (count($hostPortPair) !== 2) {
-        continue;
-      }
-      $host = trim($hostPortPair[0]);
-      $port = (int) trim($hostPortPair[1]);
-      if (empty($host) || $port <= 0) {
-        continue;
-      }
-      \array_push($result, [
-        'host' => $host,
-        'port' => $port,
-      ]);
-    }
-
-    return $result;
+    return [$transport, $client];
   }
 
-  private function _standardizeAuth(string $auth) {
-    if (empty($auth)) {
-      return [];
+  private function _getTransportAndClient() {
+    $hosts = $this->config['hosts'];
+
+    $poolSize = count($hosts);
+
+    if ($this->config['poolSelectOption'] === PoolSelectOption::ANY_ALIVE_OR_FIRST) {
+      $randomPoolIndex = rand(0, $poolSize - 1);
+
+      for ($i = $randomPoolIndex; $i < $randomPoolIndex + $poolSize; ++$i) {
+        $hostPortPair = $hosts[$i % $poolSize];
+
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          continue;
+        }
+
+        return [$transport, $client];
+      }
+
+      // Get first host-port
+      $hostPortPair = $hosts[0];
+
+      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+    } else {
+      for ($i = 0; $i < $poolSize; ++$i) {
+        $hostPortPair = $hosts[$i];
+
+        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+
+        if ($client === null) {
+          continue;
+        }
+
+        return [$transport, $client];
+      }
+
+      // Get first host-port
+      $hostPortPair = $hosts[0];
+
+      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
     }
 
-    $auth = explode(':', $auth);
+    throw new \Exception('Not supported yet');
+  }
 
-    if (count($auth) !== 2) {
-      return [];
+  public function setTraceId(string $value) {
+    if ($value === null || trim($value) === '') {
+      throw new \Exception('Invalid "value" param');
     }
 
-    $username = trim($auth[0]);
-    $password = trim($auth[1]);
+    $this->operationHandle->traceId = trim($value);
+  }
 
-    if (empty($username) || empty($password)) {
-      return [];
-    }
-
-    $result = [
-      'username' => $username,
-      'password' => $password,
-    ];
-
-    return $result;
+  public function getLastException() {
+    return $this->lastException;
   }
 
   private function _validateSearchProductRequest(SearchProductRequest $request) {
@@ -263,105 +290,33 @@ class Gateway {
     $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
   }
 
-  private function _createTransportAndClient(string $host, int $port) {
-    $socket = new TSocket($host, $port);
-    $socket->setSendTimeout($this->config['sendTimeoutInMilliseconds']);
-    $socket->setRecvTimeout($this->config['receiveTimeoutInMilliseconds']);
-
-    $transport = new TFramedTransport($socket);
-
-    $protocol = new TBinaryProtocol($transport);
-
-    $client = new MiczoneCatalogGatewayServiceClient($protocol);
-
-    return [$transport, $client];
-  }
-
-  private function _getTransportAndClient() {
-    $poolSize = count($this->config['hosts']);
-
-    if ($this->config['scaleMode'] === ScaleMode::BALANCING) {
-      $randomPoolIndex = rand(0, $poolSize - 1);
-
-      for ($i = $randomPoolIndex; $i < $randomPoolIndex + $poolSize; ++$i) {
-        $hostPortPair = $this->config['hosts'][$i % $poolSize];
-
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-
-        if ($client === null) {
-          continue;
-        }
-
-        return [$transport, $client];
-      }
-
-      // Get first host-port
-      $hostPortPair = $this->config['hosts'][0];
-
-      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-    } else {
-      for ($i = 0; $i < $poolSize; ++$i) {
-        $hostPortPair = $this->config['hosts'][$i];
-
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-
-        if ($client === null) {
-          continue;
-        }
-
-        return [$transport, $client];
-      }
-
-      // Get first host-port
-      $hostPortPair = $this->config['hosts'][0];
-
-      return $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
-    }
-
-    throw new \Exception('Not supported yet');
-  }
-
-  public function setTraceId(string $value) {
-    if ($value === null || trim($value) === '') {
-      throw new \Exception('Invalid "value" param');
-    }
-
-    $this->operationHandle->traceId = trim($value);
-  }
-
-  public function getLastException() {
-    return $this->lastException;
-  }
-
   /**
    * @return \Miczone\Thrift\Common\ErrorCode
    */
   public function ping() {
-    foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
+    for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
+      list($transport, $client) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($client === null) {
+        // Do something ...
+        break;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->ping($this->operationHandle);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->ping($this->operationHandle);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        // Do something ...
       }
     }
 
@@ -377,7 +332,7 @@ class Gateway {
     $this->_validateSearchProductRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
         list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
 
         if ($client === null) {
@@ -420,7 +375,7 @@ class Gateway {
     $this->_validateGetCategoryByIdRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
         list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
 
         if ($client === null) {
@@ -463,7 +418,7 @@ class Gateway {
     $this->_validateGetCategoryBySlugRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
         list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
 
         if ($client === null) {
@@ -506,7 +461,7 @@ class Gateway {
     $this->_validateGetCategoryByOriginalCategoryRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
         list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
 
         if ($client === null) {
@@ -549,7 +504,7 @@ class Gateway {
     $this->_validateGetCategoryByProductSkuAndOriginalMerchantRequest($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
         list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
 
         if ($client === null) {
@@ -592,7 +547,7 @@ class Gateway {
     $this->_validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchant($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
         list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
 
         if ($client === null) {
@@ -635,7 +590,7 @@ class Gateway {
     $this->_validateGetMatrixProduct($request);
 
     foreach ($this->config['hosts'] as $hostPortPair) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; $i++) {
+      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
         list($transport, $client) = $this->_createTransportAndClient($hostPortPair['host'], $hostPortPair['port']);
 
         if ($client === null) {
