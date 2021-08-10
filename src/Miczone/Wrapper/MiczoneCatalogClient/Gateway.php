@@ -45,15 +45,17 @@ class Gateway extends MiczoneClientBase {
 
   const SCALE_MODE = ScaleMode::BALANCING;
 
-  protected $config;
-
-  protected $operationHandle;
-
   protected $lastException;
 
   private $_hostPorts;
 
   private $_hostPortsAliveStatus;
+
+  private $_operationHandle;
+
+  private $_sendTimeoutInMilliseconds;
+
+  private $_receiveTimeoutInMilliseconds;
 
   private $_totalLoop;
 
@@ -85,13 +87,22 @@ class Gateway extends MiczoneClientBase {
       throw new \Exception('Invalid "auth" config');
     }
 
+    $this->_operationHandle = new OperationHandle([
+      'username' => $config['auth']['username'],
+      'password' => $config['auth']['password'],
+    ]);
+
     if (!is_int($config['sendTimeoutInMilliseconds']) || $config['sendTimeoutInMilliseconds'] <= 0) {
       $config['sendTimeoutInMilliseconds'] = static::SEND_TIMEOUT_IN_MILLISECONDS;
     }
 
+    $this->_sendTimeoutInMilliseconds = $config['sendTimeoutInMilliseconds'];
+
     if (!is_int($config['receiveTimeoutInMilliseconds']) || $config['receiveTimeoutInMilliseconds'] <= 0) {
       $config['receiveTimeoutInMilliseconds'] = static::RECEIVE_TIMEOUT_IN_MILLISECONDS;
     }
+
+    $this->_receiveTimeoutInMilliseconds = $config['receiveTimeoutInMilliseconds'];
 
     if (!is_int($config['numberOfRetries']) || $config['numberOfRetries'] <= 0) {
       $config['numberOfRetries'] = static::NUMBER_OF_RETRIES;
@@ -110,13 +121,6 @@ class Gateway extends MiczoneClientBase {
     }
 
     $this->_poolSelectOption = $config['poolSelectOption'];
-
-    $this->config = $config;
-
-    $this->operationHandle = new OperationHandle([
-      'username' => $this->config['auth']['username'],
-      'password' => $this->config['auth']['password'],
-    ]);
   }
 
   public function __destruct() {
@@ -124,8 +128,8 @@ class Gateway extends MiczoneClientBase {
 
   private function _createTransportAndClient(string $host, int $port) {
     $socket = new TSocket($host, $port);
-    $socket->setSendTimeout($this->config['sendTimeoutInMilliseconds']);
-    $socket->setRecvTimeout($this->config['receiveTimeoutInMilliseconds']);
+    $socket->setSendTimeout($this->_sendTimeoutInMilliseconds);
+    $socket->setRecvTimeout($this->_receiveTimeoutInMilliseconds);
 
     $transport = new TFramedTransport($socket);
 
@@ -200,7 +204,7 @@ class Gateway extends MiczoneClientBase {
       throw new \Exception('Invalid "value" param');
     }
 
-    $this->operationHandle->traceId = trim($value);
+    $this->_operationHandle->traceId = trim($value);
   }
 
   public function getLastException() {
@@ -287,13 +291,13 @@ class Gateway extends MiczoneClientBase {
     $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
   }
 
-  private function _validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchant(MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest $request) {
+  private function _validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest(MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest $request) {
     if (!isset($request->dataMap) || !is_array($request->dataMap) || count($request->dataMap) === 0) {
       throw new \Exception('Invalid "dataMap" param');
     }
   }
 
-  private function _validateGetMatrixProduct(GetMatrixProductRequest $request) {
+  private function _validateGetMatrixProductRequest(GetMatrixProductRequest $request) {
     if (!isset($request->websiteCode) || !is_string($request->websiteCode) || trim($request->websiteCode) === '') {
       throw new \Exception('Invalid "websiteCode" param');
     }
@@ -333,8 +337,10 @@ class Gateway extends MiczoneClientBase {
 
       try {
         $transport->open();
-        $result = $client->ping($this->operationHandle);
+        $result = $client->ping($this->_operationHandle);
         $transport->close();
+
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
 
         return $result;
       } catch (TTransportException $ex) {
@@ -363,31 +369,34 @@ class Gateway extends MiczoneClientBase {
   public function searchProduct(SearchProductRequest $request) {
     $this->_validateSearchProductRequest($request);
 
-    foreach ($this->config['hostPorts'] as $hostPort) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($transport === null || $client === null) {
+        // Do something ...
+        continue;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->searchProduct($this->operationHandle, $request);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->searchProduct($this->_operationHandle, $request);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
+
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
       }
     }
 
@@ -406,31 +415,34 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryById(GetCategoryByIdRequest $request) {
     $this->_validateGetCategoryByIdRequest($request);
 
-    foreach ($this->config['hostPorts'] as $hostPort) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($transport === null || $client === null) {
+        // Do something ...
+        continue;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->getCategoryById($this->operationHandle, $request);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->getCategoryById($this->_operationHandle, $request);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
+
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
       }
     }
 
@@ -449,31 +461,34 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryBySlug(GetCategoryBySlugRequest $request) {
     $this->_validateGetCategoryBySlugRequest($request);
 
-    foreach ($this->config['hostPorts'] as $hostPort) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($transport === null || $client === null) {
+        // Do something ...
+        continue;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->getCategoryBySlug($this->operationHandle, $request);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->getCategoryBySlug($this->_operationHandle, $request);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
+
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
       }
     }
 
@@ -492,31 +507,34 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryByOriginalCategory(GetCategoryByOriginalCategoryRequest $request) {
     $this->_validateGetCategoryByOriginalCategoryRequest($request);
 
-    foreach ($this->config['hostPorts'] as $hostPort) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($transport === null || $client === null) {
+        // Do something ...
+        continue;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->getCategoryByOriginalCategory($this->operationHandle, $request);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->getCategoryByOriginalCategory($this->_operationHandle, $request);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
+
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
       }
     }
 
@@ -535,31 +553,34 @@ class Gateway extends MiczoneClientBase {
   public function getCategoryByProductSkuAndOriginalMerchant(GetCategoryByProductSkuAndOriginalMerchantRequest $request) {
     $this->_validateGetCategoryByProductSkuAndOriginalMerchantRequest($request);
 
-    foreach ($this->config['hostPorts'] as $hostPort) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($transport === null || $client === null) {
+        // Do something ...
+        continue;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->getCategoryByProductSkuAndOriginalMerchant($this->operationHandle, $request);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->getCategoryByProductSkuAndOriginalMerchant($this->_operationHandle, $request);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
+
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
       }
     }
 
@@ -576,33 +597,36 @@ class Gateway extends MiczoneClientBase {
    * @throws \Exception
    */
   public function multiGetBreadcrumbListByProductSkuAndOriginalMerchant(MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest $request) {
-    $this->_validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchant($request);
+    $this->_validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest($request);
 
-    foreach ($this->config['hostPorts'] as $hostPort) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($transport === null || $client === null) {
+        // Do something ...
+        continue;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->multiGetBreadcrumbListByProductSkuAndOriginalMerchant($this->operationHandle, $request);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->multiGetBreadcrumbListByProductSkuAndOriginalMerchant($this->_operationHandle, $request);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
+
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
       }
     }
 
@@ -619,33 +643,36 @@ class Gateway extends MiczoneClientBase {
    * @throws \Exception
    */
   public function getMatrixProduct(GetMatrixProductRequest $request) {
-    $this->_validateGetMatrixProduct($request);
+    $this->_validateGetMatrixProductRequest($request);
 
-    foreach ($this->config['hostPorts'] as $hostPort) {
-      for ($i = 0; $i < $this->config['numberOfRetries']; ++$i) {
-        list($transport, $client) = $this->_createTransportAndClient($hostPort['host'], $hostPort['port']);
+    for ($i = 0; $i < $this->_totalLoop; ++$i) {
+      list($transport, $client, $hostPort) = $this->_getTransportAndClient();
 
-        if ($client === null) {
-          // Do something ...
-          break;
-        }
+      if ($transport === null || $client === null) {
+        // Do something ...
+        continue;
+      }
 
-        try {
-          $transport->open();
-          $result = $client->getMatrixProduct($this->operationHandle, $request);
-          $transport->close();
+      try {
+        $transport->open();
+        $result = $client->getMatrixProduct($this->_operationHandle, $request);
+        $transport->close();
 
-          return $result;
-        } catch (TTransportException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (TException $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        } catch (\Exception $ex) {
-          $this->lastException = $ex;
-          // Do something ...
-        }
+        $this->markHostPortAlive($this->_hostPortsAliveStatus, $hostPort);
+
+        return $result;
+      } catch (TTransportException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (TException $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
+      } catch (\Exception $ex) {
+        $this->lastException = $ex;
+        $this->markHostPortDead($this->_hostPortsAliveStatus, $hostPort);
+        // Do something ...
       }
     }
 

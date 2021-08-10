@@ -12,6 +12,7 @@ composer require quinluong/miczone-wrapper-php
 
 ```bash
 ./vendor/phpunit/phpunit/phpunit --verbose tests
+./vendor/phpunit/phpunit/phpunit --verbose tests/Miczone/Wrapper/MiczoneCatalogClient/GatewayTest.php --filter testPing
 ./vendor/phpunit/phpunit/phpunit --repeat 10 --verbose tests
 ```
 

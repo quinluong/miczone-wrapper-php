@@ -56,6 +56,16 @@ class MiczoneClientBase {
     return $result;
   }
 
+  protected function markHostPortAlive(array &$hostPortsAliveStatus, array $hostPort) {
+    if (empty($hostPortsAliveStatus) || empty($hostPort)) {
+      return;
+    }
+
+    $key = $hostPort['host'] . ':' . $hostPort['port'];
+
+    $hostPortsAliveStatus[$key] = true;
+  }
+
   protected function markHostPortDead(array &$hostPortsAliveStatus, array $hostPort) {
     if (empty($hostPortsAliveStatus) || empty($hostPort)) {
       return;
