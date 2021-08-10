@@ -78,6 +78,7 @@ final class GatewayTest extends TestCase {
     $this->assertNotNull($response->error);
     $this->assertEquals(ErrorCode::SUCCESS, $response->error->code);
     $this->assertNotNull($response->data);
+    $this->assertEquals($request->id, $response->data->id);
   }
 
   public function testGetCategoryBySlug() {
@@ -94,6 +95,7 @@ final class GatewayTest extends TestCase {
     $this->assertNotNull($response->error);
     $this->assertEquals(ErrorCode::SUCCESS, $response->error->code);
     $this->assertNotNull($response->data);
+    $this->assertEquals($request->slug, $response->data->slug);
   }
 
   public function testGetCategoryByOriginalCategory() {

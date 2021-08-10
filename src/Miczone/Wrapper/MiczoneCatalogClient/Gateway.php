@@ -104,7 +104,7 @@ class Gateway extends MiczoneClientBase {
 
     $this->_receiveTimeoutInMilliseconds = $config['receiveTimeoutInMilliseconds'];
 
-    if (!is_int($config['numberOfRetries']) || $config['numberOfRetries'] <= 0) {
+    if (!is_int($config['numberOfRetries']) || $config['numberOfRetries'] < 0) {
       $config['numberOfRetries'] = static::NUMBER_OF_RETRIES;
     }
 
