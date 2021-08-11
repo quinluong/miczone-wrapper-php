@@ -32,6 +32,7 @@ use Thrift\Transport\TFramedTransport;
 use Thrift\Transport\TSocket;
 
 class Storage extends MiczoneClientBase {
+
   const CLIENT_VERSION = 'v1.0';
 
   const HOSTS = [];
@@ -92,10 +93,6 @@ class Storage extends MiczoneClientBase {
       'username' => $config['auth']['username'],
       'password' => $config['auth']['password'],
     ]);
-
-    if (empty($config['auth'])) {
-      throw new \Exception('Invalid "auth" config');
-    }
 
     if (!is_int($config['sendTimeoutInMilliseconds']) || $config['sendTimeoutInMilliseconds'] <= 0) {
       $config['sendTimeoutInMilliseconds'] = static::SEND_TIMEOUT_IN_MILLISECONDS;

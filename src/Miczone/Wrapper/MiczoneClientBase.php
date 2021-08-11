@@ -116,4 +116,30 @@ class MiczoneClientBase {
     return $result;
   }
 
+  protected function standardizeTopics(string $topics) {
+    if (empty($topics)) {
+      return [];
+    }
+
+    $topics = explode(',', $topics);
+
+    if (empty($topics)) {
+      return [];
+    }
+
+    $result = [];
+
+    foreach ($topics as $topic) {
+      $topic = trim($topic);
+
+      if (empty($topic)) {
+        continue;
+      }
+
+      \array_push($result, $topic);
+    }
+
+    return $result;
+  }
+
 }
