@@ -2,7 +2,7 @@
 
 declare (strict_types = 1);
 
-namespace Tests\Miczone\Wrapper\MiczoneCatalogClient;
+namespace Tests\Miczone\Wrapper\MiczoneEventBusClient;
 
 use Miczone\Thrift\Common\ErrorCode;
 use Miczone\Thrift\Common\ScaleMode;
