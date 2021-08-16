@@ -278,17 +278,31 @@ class Gateway extends MiczoneClientBase {
   }
 
   private function _validateGetCategoryByProductSkuAndOriginalMerchantRequest(GetCategoryByProductSkuAndOriginalMerchantRequest $request) {
+    if (!isset($request->websiteCode) || !is_string($request->websiteCode) || trim($request->websiteCode) === '') {
+      throw new \Exception('Invalid "websiteCode" param');
+    }
+
+    $request->websiteCode = trim($request->websiteCode);
+
+    if (!isset($request->countryCode) || !is_string($request->countryCode) || trim($request->countryCode) === '') {
+      throw new \Exception('Invalid "countryCode" param');
+    }
+
+    $request->countryCode = trim($request->countryCode);
+
     if (!isset($request->productSku) || !is_string($request->productSku) || trim($request->productSku) === '') {
       throw new \Exception('Invalid "productSku" param');
     }
 
     $request->productSku = trim($request->productSku);
 
-    if (!isset($request->originalMerchantOriginalId) || !is_string($request->originalMerchantOriginalId) || trim($request->originalMerchantOriginalId) === '') {
-      throw new \Exception('Invalid "originalMerchantOriginalId" param');
-    }
+    if (isset($request->originalMerchantOriginalId)) {
+      if (!is_string($request->originalMerchantOriginalId) || trim($request->originalMerchantOriginalId) === '') {
+        throw new \Exception('Invalid "originalMerchantOriginalId" param');
+      }
 
-    $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
+      $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
+    }
   }
 
   private function _validateMultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest(MultiGetBreadcrumbListByProductSkuAndOriginalMerchantRequest $request) {
@@ -315,12 +329,6 @@ class Gateway extends MiczoneClientBase {
     }
 
     $request->productSku = trim($request->productSku);
-
-    if (!isset($request->originalMerchantOriginalId) || !is_string($request->originalMerchantOriginalId) || trim($request->originalMerchantOriginalId) === '') {
-      throw new \Exception('Invalid "originalMerchantOriginalId" param');
-    }
-
-    $request->originalMerchantOriginalId = trim($request->originalMerchantOriginalId);
   }
 
   /**
